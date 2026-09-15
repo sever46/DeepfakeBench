@@ -1,5 +1,5 @@
 preprocess:
-  dataset_name: # the name of dataset
+  dataset_name:
     choices: ['FaceForensics++','Celeb-DF-v1', 'Celeb-DF-v2', 'DFDCP', 'DFDC', 'DeeperForensics-1.0','UADFV']
     default: 'FaceForensics++'
   dataset_root_path: # the root path to the dataset
@@ -24,7 +24,7 @@ rearrange:
     default: 'FaceForensics++'
   dataset_root_path: # the root path to the dataset
     type: str
-    default: ''
+    default: '../datasets/rgb/'
   output_file_path: # the json path to the dataset
     type: str
     default: '../preprocessing/dataset_json_v6'

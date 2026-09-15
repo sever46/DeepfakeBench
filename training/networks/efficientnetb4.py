@@ -34,7 +34,8 @@ class EfficientNetB4(nn.Module):
         else:
             self.efficientnet = EfficientNet.from_name('efficientnet-b4')
         # Modify the first convolutional layer to accept input tensors with 'inc' channels
-        self.efficientnet._conv_stem = nn.Conv2d(inc, 48, kernel_size=3, stride=2, bias=False)
+        if inc != 3:
+            self.efficientnet._conv_stem = nn.Conv2d(inc, 48, kernel_size=3, stride=2, bias=False)
 
         # Remove the last layer (the classifier) from the EfficientNet-B4 model
         self.efficientnet._fc = nn.Identity()

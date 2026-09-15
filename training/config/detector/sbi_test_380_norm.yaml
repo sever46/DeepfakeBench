@@ -1,0 +1,106 @@
+log_dir: /data/home/zhiyuanyan/logs/benchv2/sbi_v3
+pretrained: /media/domen/LOJZES/OTHER/__ai/IBB-research/DeepfakeBench/training/pretrained/xception-b5690688.pth
+model_name: sbi
+backbone_name: efficientnetb4
+backbone_config:
+  mode: original
+  num_classes: 2
+  inc: 3
+  dropout: false
+  pretrained: true
+all_dataset:
+- FaceForensics++
+- FF-F2F
+- FF-DF
+- FF-FS
+- FF-NT
+- FaceShifter
+- DeepFakeDetection
+- Celeb-DF-v1
+- Celeb-DF-v2
+- DFDCP
+- DFDC
+- DeeperForensics-1.0
+- UADFV
+train_dataset:
+- FaceForensics++
+test_dataset:
+- Celeb-DF-v2
+- DFDC
+- DFDCP
+dataset_type: blend
+compression: c23
+train_batchSize: 8
+test_batchSize: 8
+workers: 2
+frame_num:
+  train: 8
+  test: 8
+resolution: 380
+with_mask: false
+with_landmark: true
+save_ckpt: true
+save_feat: false
+use_data_augmentation: true
+data_aug:
+  flip_prob: 0.5
+  rotate_prob: 0.5
+  rotate_limit:
+  - -10
+  - 10
+  blur_prob: 0.5
+  blur_limit:
+  - 3
+  - 7
+  brightness_prob: 0.5
+  brightness_limit:
+  - -0.1
+  - 0.1
+  contrast_limit:
+  - -0.1
+  - 0.1
+  quality_lower: 40
+  quality_upper: 100
+mean:
+- 0.485
+- 0.456
+- 0.406
+std:
+- 0.229
+- 0.224
+- 0.225
+optimizer:
+  type: sam
+  adam:
+    lr: 0.0002
+    beta1: 0.9
+    beta2: 0.999
+    eps: 1.0e-08
+    weight_decay: 0.0005
+    amsgrad: false
+  sgd:
+    lr: 0.0002
+    momentum: 0.9
+    weight_decay: 0.0005
+  sam:
+    lr: 0.001
+    momentum: 0.9
+lr_scheduler: step
+lr_step: 3
+lr_gamma: 0.4
+nEpochs: 10
+start_epoch: 0
+save_epoch: 1
+rec_iter: 100
+logdir: ./logs
+manualSeed: 1024
+loss_func: cross_entropy
+losstype: null
+metric_scoring: auc
+cuda: true
+cudnn: true
+lmdb: false
+dry_run: false
+rgb_dir: ./datasets/rgb
+lmdb_dir: ./datasets/lmdb
+dataset_json_folder: ./preprocessing/dataset_json

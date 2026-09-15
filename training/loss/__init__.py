@@ -22,3 +22,6 @@ from .js_loss import JS_Loss
 from .patch_consistency_loss import PatchConsistencyLoss
 from .region_independent_loss import RegionIndependentLoss
 from .supercontrast_loss import SupConLoss
+
+# added
+from .soft_ce_loss import SoftCrossEntropyLoss

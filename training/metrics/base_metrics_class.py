@@ -21,7 +21,7 @@ def get_prediction(output, label):
     return datas
 
 
-def calculate_metrics_for_train(label, output):
+def calculate_metrics_for_train_old(label, output):
     if output.size(1) == 2:
         prob = torch.softmax(output, dim=1)[:, 1]
     else:
@@ -48,6 +48,40 @@ def calculate_metrics_for_train(label, output):
 
     if np.isnan(fpr[0]) or np.isnan(tpr[0]):
         # for the case when all the samples within a batch is fake/real
+        auc, eer = None, None
+    else:
+        auc = metrics.auc(fpr, tpr)
+        fnr = 1 - tpr
+        eer = fpr[np.nanargmin(np.absolute((fnr - fpr)))]
+
+    return auc, eer, accuracy, ap
+
+
+# PATCH
+def calculate_metrics_for_train(label, output):
+    if output.ndim == 2 and output.size(1) >= 2:
+        prob = torch.softmax(output, dim=1)[:, 1]
+    else:
+        prob = output.reshape(-1)
+
+    _, prediction = torch.max(output, 1)
+    correct = (prediction == label).sum().item()
+    accuracy = correct / prediction.size(0)
+
+    y_true = label.cpu().detach().numpy()
+    y_pred = prob.cpu().detach().numpy()
+    ap = metrics.average_precision_score(y_true, y_pred)
+
+    try:
+        fpr, tpr, thresholds = metrics.roc_curve(
+            label.squeeze().cpu().numpy(),
+            prob.squeeze().cpu().numpy(),
+            pos_label=1
+        )
+    except:
+        return None, None, accuracy, ap
+
+    if np.isnan(fpr[0]) or np.isnan(tpr[0]):
         auc, eer = None, None
     else:
         auc = metrics.auc(fpr, tpr)

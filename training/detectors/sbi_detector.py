@@ -114,5 +114,8 @@ class SBIDetector(AbstractDetector):
         # get the probability of the pred
         prob = torch.softmax(pred, dim=1)[:, 1]
         # build the prediction dict for each output
+        
         pred_dict = {'cls': pred, 'prob': prob, 'feat': features}
+        # PATCH to use less memory
+        #pred_dict = {'cls': pred, 'prob': prob}
         return pred_dict

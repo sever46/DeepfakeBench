@@ -46,6 +46,7 @@ parser.add_argument('--weights_path', type=str,
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print('device: ', device)
 
 def init_seed(config):
     if config['manualSeed'] is None:
@@ -109,9 +110,19 @@ def test_one_dataset(model, data_loader):
         predictions = inference(model, data_dict)
         label_lists += list(data_dict['label'].cpu().detach().numpy())
         prediction_lists += list(predictions['prob'].cpu().detach().numpy())
-        feature_lists += list(predictions['feat'].cpu().detach().numpy())
+
+
+        # uncomment this to use more memory for no reason ...
+        # feature_lists += list(predictions['feat'].cpu().detach().numpy())
+        
+        # [ADDED] GPU overheat prevention
+        # if i % 100 == 0 and i > 0:
+        #    while True:
+        #        val = input("Checkpoint reached! Type 'C' to continue ...")
+        #        if val == 'C':
+        #            break
     
-    return np.array(prediction_lists), np.array(label_lists),np.array(feature_lists)
+    return np.array(prediction_lists), np.array(label_lists)#,np.array(feature_lists)
     
 def test_epoch(model, test_data_loaders):
     # set model to eval mode
@@ -122,20 +133,30 @@ def test_epoch(model, test_data_loaders):
 
     # testing for all test data
     keys = test_data_loaders.keys()
-    for key in keys:
+    for i, key in enumerate(keys):
         data_dict = test_data_loaders[key].dataset.data_dict
         # compute loss for each dataset
-        predictions_nps, label_nps,feat_nps = test_one_dataset(model, test_data_loaders[key])
+        # predictions_nps, label_nps,feat_nps = test_one_dataset(model, test_data_loaders[key])
+        predictions_nps, label_nps = test_one_dataset(model, test_data_loaders[key])
         
         # compute metric for each dataset
         metric_one_dataset = get_test_metrics(y_pred=predictions_nps, y_true=label_nps,
                                               img_names=data_dict['image'])
+
+        # this is commented out to save memory.
         metrics_all_datasets[key] = metric_one_dataset
         
         # info for each dataset
         tqdm.write(f"dataset: {key}")
         for k, v in metric_one_dataset.items():
+            #print(k, v)
             tqdm.write(f"{k}: {v}")
+
+        # This is added because otherwise my GPU would overheat and the driver would force poweroff
+        # while True:
+        #    val = input(f"Checkpoint reached ({i} / {len(keys)})! Type 'C' to continue ...")
+        #    if val == 'C':
+        #        break
 
     return metrics_all_datasets
 

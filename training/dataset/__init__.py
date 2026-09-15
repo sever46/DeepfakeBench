@@ -17,3 +17,6 @@ from .pair_dataset import pairDataset
 from .sbi_dataset import SBIDataset
 from .lsda_dataset import LSDADataset
 from .tall_dataset import TALLDataset
+
+# added
+from .sbiplus_dataset_v2 import SBIPlusV2Dataset

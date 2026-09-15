@@ -59,6 +59,12 @@ class Trainer(object):
         self.writers = {}  # dict to maintain different tensorboard writers for each dataset and metric
         self.logger = logger
         self.metric_scoring = metric_scoring
+        # ADDED
+        self.accumulation_steps = config.get('accumulation_steps',1)
+        self.accumulation_count = 0
+        if self.accumulation_steps < 1:
+            raise ValueError('accumulation_steps must be at least 1')
+        # END ADDED
         # maintain the best metric of all epochs
         self.best_metrics_all_time = defaultdict(
             lambda: defaultdict(lambda: float('-inf')
@@ -180,7 +186,7 @@ class Trainer(object):
             pickle.dump(metric_one_dataset, file)
         self.logger.info(f"Metrics saved to {file_path}")
 
-    def train_step(self,data_dict):
+    def train_step(self,data_dict, force_step=False):
         if self.config['optimizer']['type']=='sam':
             for i in range(2):
                 predictions = self.model(data_dict)
@@ -202,9 +208,23 @@ class Trainer(object):
                 losses = self.model.module.get_losses(data_dict, predictions)
             else:
                 losses = self.model.get_losses(data_dict, predictions)
-            self.optimizer.zero_grad()
-            losses['overall'].backward()
-            self.optimizer.step()
+
+            # ADDED
+            losses['overall'].backward() # //
+            self.accumulation_count += 1
+            if self.accumulation_count >= self.accumulation_steps or force_step:
+                if self.accumulation_count > 1:
+                    for group in self.optimizer.param_groups:
+                        for param in group['params']:
+                            if param.grad is not None:
+                                param.grad.div_(self.accumulation_count)
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+                self.accumulation_count = 0
+            # END ADDED
+            #self.optimizer.zero_grad()
+            #losses['overall'].backward()
+            #self.optimizer.step()
 
 
             return losses,predictions
@@ -218,6 +238,10 @@ class Trainer(object):
         ):
 
         self.logger.info("===> Epoch[{}] start!".format(epoch))
+        # ADDED
+        self.optimizer.zero_grad()
+        self.accumulation_count = 0
+        # END ADDED
         if epoch>=1:
             times_per_epoch = 2
         else:
@@ -243,7 +267,13 @@ class Trainer(object):
                 if data_dict[key]!=None and key!='name':
                     data_dict[key]=data_dict[key].cuda()
 
-            losses,predictions=self.train_step(data_dict)
+            #losses,predictions=self.train_step(data_dict)
+            # ADDED
+            losses,predictions=self.train_step(
+                data_dict,
+                force_step=iteration+1==len(train_data_loader),
+            )
+            # END ADDED
 
             # update learning rate
 
@@ -345,6 +375,8 @@ class Trainer(object):
         prediction_lists = []
         feature_lists=[]
         label_lists = []
+        collect_features = self.config.get('save_feat', False)
+        print(f'collect features: {collect_features}')
         for i, data_dict in tqdm(enumerate(data_loader),total=len(data_loader)):
             # get data
             if 'label_spe' in data_dict:
@@ -358,7 +390,8 @@ class Trainer(object):
             predictions = self.inference(data_dict)
             label_lists += list(data_dict['label'].cpu().detach().numpy())
             prediction_lists += list(predictions['prob'].cpu().detach().numpy())
-            feature_lists += list(predictions['feat'].cpu().detach().numpy())
+            if collect_features:
+                feature_lists += list(predictions['feat'].cpu().detach().numpy())
             if type(self.model) is not AveragedModel:
                 # compute all losses for each batch data
                 if type(self.model) is DDP:

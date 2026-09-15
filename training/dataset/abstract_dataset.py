@@ -293,10 +293,13 @@ class DeepfakeAbstractBaseDataset(data.Dataset):
         Raises:
             ValueError: If the loaded image is None.
         """
+        # a fix/hack to make rgb datasets loadable on linux
+        if os.name == "posix":
+            file_path = file_path.replace('\\', '/')
         size = self.config['resolution'] # if self.mode == "train" else self.config['resolution']
         if not self.lmdb:
             if not file_path[0] == '.':
-                file_path =  f'./{self.config["rgb_dir"]}\\'+file_path
+                file_path =  f'./{self.config["rgb_dir"]}/'+file_path
             assert os.path.exists(file_path), f"{file_path} does not exist"
             img = cv2.imread(file_path)
             if img is None:
@@ -305,7 +308,7 @@ class DeepfakeAbstractBaseDataset(data.Dataset):
             with self.env.begin(write=False) as txn:
                 # transfer the path format from rgb-path to lmdb-key
                 if file_path[0]=='.':
-                    file_path=file_path.replace('./datasets\\','')
+                    file_path=file_path.replace('./datasets/','')
 
                 image_bin = txn.get(file_path.encode())
                 image_buf = np.frombuffer(image_bin, dtype=np.uint8)
@@ -328,23 +331,28 @@ class DeepfakeAbstractBaseDataset(data.Dataset):
         Raises:
             None.
         """
+        # a fix/hack to make masks loadable on linux
         size = self.config['resolution']
         if file_path is None:
             return np.zeros((size, size, 1))
+        if os.name == "posix":
+            file_path = file_path.replace('\\', '/')
         if not self.lmdb:
             if not file_path[0] == '.':
-                file_path =  f'./{self.config["rgb_dir"]}\\'+file_path
+                file_path =  f'./{self.config["rgb_dir"]}/'+file_path
             if os.path.exists(file_path):
                 mask = cv2.imread(file_path, 0)
                 if mask is None:
                     mask = np.zeros((size, size))
             else:
+                if self.mode == 'train':
+                    print(f'[WARN] could not load mask! path {file_path} does not exist!')
                 return np.zeros((size, size, 1))
         else:
             with self.env.begin(write=False) as txn:
                 # transfer the path format from rgb-path to lmdb-key
                 if file_path[0]=='.':
-                    file_path=file_path.replace('./datasets\\','')
+                    file_path=file_path.replace('./datasets/','')
 
                 image_bin = txn.get(file_path.encode())
                 if image_bin is None:
@@ -370,20 +378,27 @@ class DeepfakeAbstractBaseDataset(data.Dataset):
         Raises:
             None.
         """
+        # a fix/hack to make rgb datasets loadable on linux
         if file_path is None:
+            print('[WARN] file path is None for load_landmark')
             return np.zeros((81, 2))
+        if os.name == "posix":
+            file_path = file_path.replace('\\', '/')
         if not self.lmdb:
             if not file_path[0] == '.':
-                file_path =  f'./{self.config["rgb_dir"]}\\'+file_path
+                file_path =  f'./{self.config["rgb_dir"]}/'+file_path
             if os.path.exists(file_path):
                 landmark = np.load(file_path)
+                landmark=self.rescale_landmarks(np.float32(landmark), original_size=256, new_size=self.config['resolution'])
             else:
+                if self.mode == 'train':
+                    print(f'[WARN] could not load landmark! path {file_path} does not exist!')
                 return np.zeros((81, 2))
         else:
             with self.env.begin(write=False) as txn:
                 # transfer the path format from rgb-path to lmdb-key
                 if file_path[0]=='.':
-                    file_path=file_path.replace('./datasets\\','')
+                    file_path=file_path.replace('./datasets/','')
                 binary = txn.get(file_path.encode())
                 landmark = np.frombuffer(binary, dtype=np.uint32).reshape((81, 2))
                 landmark=self.rescale_landmarks(np.float32(landmark), original_size=256, new_size=self.config['resolution'])

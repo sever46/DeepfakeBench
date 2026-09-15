@@ -75,6 +75,8 @@ def prepare_training_data(config):
             raise NotImplementedError(
                 'Only facexray, fwa, sbi, and lsda are currently supported for blending dataset'
             )
+    elif 'dataset_type' in config and config['dataset_type'] == 'sbiplus_v2':
+        train_set = SBIPlusV2Dataset(config, mode='train')
     elif 'dataset_type' in config and config['dataset_type'] == 'pair':
         train_set = pairDataset(config, mode='train')  # Only use the pair dataset class in training
     elif 'dataset_type' in config and config['dataset_type'] == 'iid':
@@ -90,7 +92,7 @@ def prepare_training_data(config):
                 )
     if config['model_name'] == 'lsda':
         from dataset.lsda_dataset import CustomSampler
-        custom_sampler = CustomSampler(num_groups=2*360, n_frame_per_vid=config['frame_num']['train'], batch_size=config['train_batchSize'], videos_per_group=5)
+        custom_sampler = CustomSampler(num_groups=train_set.num_groups, n_frame_per_vid=config['frame_num']['train'], batch_size=config['train_batchSize'], videos_per_group=5)
         train_data_loader = \
             torch.utils.data.DataLoader(
                 dataset=train_set,

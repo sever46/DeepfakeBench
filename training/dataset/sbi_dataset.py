@@ -37,10 +37,12 @@ class SBIDataset(DeepfakeAbstractBaseDataset):
     def __getitem__(self, index):
         # Get the real image paths and labels
         real_image_path, real_label = self.real_imglist[index]
+        real_image_path = real_image_path.replace('\\', '/')
 
         # Get the landmark paths for real images
         real_landmark_path = real_image_path.replace('frames', 'landmarks').replace('.png', '.npy')
         landmark = self.load_landmark(real_landmark_path).astype(np.int32)
+        landmark = self.sbi.reorder_landmark(landmark)
 
         # Load the real images
         real_image = self.load_rgb(real_image_path)

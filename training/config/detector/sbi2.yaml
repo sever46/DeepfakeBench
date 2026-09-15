@@ -95,3 +95,10 @@ metric_scoring: auc   # metric for evaluation (auc, acc, eer, ap)
 
 cuda: true   # whether to use CUDA acceleration
 cudnn: true   # whether to use CuDNN for convolution operations
+
+# dataset storage
+lmdb: false
+dry_run: false
+rgb_dir: ./datasets/rgb
+lmdb_dir: ./datasets/lmdb
+dataset_json_folder: ./preprocessing/dataset_json

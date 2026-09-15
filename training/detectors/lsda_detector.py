@@ -30,6 +30,7 @@ import datetime
 import numpy as np
 from collections import defaultdict
 import random
+from copy import deepcopy
 
 import torch
 import torch.nn as nn
@@ -96,8 +97,7 @@ class LSDADetector(AbstractDetector):
             loss = \
                 1  * domain_loss + \
                 0.5  * deepfake_loss + \
-                1  * total_loss_distillation + \
-                1  * loss_real
+                1  * total_loss_distillation
             loss_dict = {'overall': loss, 'domain': domain_loss, 'deepfake': deepfake_loss, 'distillation': total_loss_distillation, 'real_loss': loss_real}
         
         except:
@@ -269,6 +269,11 @@ class generator(nn.Module):
         elif real_encoder == 'efficientnetb4':
             print('real encoder: efficient')
             self.encoder_c = self.init_efficient()
+        else:
+            self.encoder_c = iresnet100(pretrained=False, fp16=False)
+            self.encoder_c.load_state_dict(torch.load(real_encoder, map_location='cpu'))
+            set_requires_grad(self.encoder_c, False)
+            set_requires_grad(self.encoder_c.layer4, True)
             
 
         if student == 'xception':
@@ -284,6 +289,7 @@ class generator(nn.Module):
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(inplace=True),
             )
+        self.fc_weights2 = deepcopy(self.fc_weights)
 
         self.mlp = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),
@@ -302,6 +308,18 @@ class generator(nn.Module):
         )
 
         self.cls_criterion = nn.CrossEntropyLoss()
+
+    def train(self, mode=True):
+        super().train(mode)
+        if mode and not isinstance(self.encoder_c, efficientnet):
+            self.encoder_c.conv1.eval()
+            self.encoder_c.bn1.eval()
+            self.encoder_c.prelu.eval()
+            self.encoder_c.layer1.eval()
+            self.encoder_c.layer2.eval()
+            self.encoder_c.layer3.eval()
+            self.encoder_c.bn2.eval()
+        return self
 
     def init_xcep(self, pretrained_path='pretrained/xception-b5690688.pth'):
         xcep = Xception(self.num_classes)
@@ -379,15 +397,15 @@ class generator(nn.Module):
         # Calculate the mean latent vector for each domain across all groups; why 8*8
         domain_means = []
         for domain_idx in range(domain_number):
-            all_samples_in_domain = torch.cat([group[domain_idx] for group in groups_feature_maps], dim=0)
+            all_samples_in_domain = torch.stack([group[domain_idx] for group in groups_feature_maps], dim=0)
             domain_mean = torch.mean(all_samples_in_domain, dim=0)
             domain_means.append(domain_mean)
 
         # Identify the hard example for each domain across all groups (the farest one)
         hard_examples = []
         for domain_idx in range(domain_number):
-            all_samples_in_domain = torch.cat([group[domain_idx] for group in groups_feature_maps], dim=0)
-            distances = torch.tensor([distance(z, domain_means[domain_idx]) for z in all_samples_in_domain])
+            all_samples_in_domain = torch.stack([group[domain_idx] for group in groups_feature_maps], dim=0)
+            distances = torch.stack([distance(z, domain_means[domain_idx]) for z in all_samples_in_domain])
             hard_example = all_samples_in_domain[torch.argmax(distances)]
             hard_examples.append(hard_example)
 
@@ -403,10 +421,10 @@ class generator(nn.Module):
                     lambda z: hard_example_interpolation(z, hard_examples[domain_idx], random.random()),
                     lambda z: hard_example_extrapolation(z, domain_means[domain_idx], random.random()),
                     lambda z: add_gaussian_noise(z, random.random(), random.random()),
-                    lambda z: difference_transform(z, domain_feature_maps[0], domain_feature_maps[1], random.random())
+                    lambda z: self.rotate_trans(z.unsqueeze(0)).squeeze(0)
                 ]
                 chosen_aug = random.choice(augmentations)
-                augmented = torch.stack([chosen_aug(z) for z in domain_feature_maps])
+                augmented = chosen_aug(domain_feature_maps)
                 augmented_domains.append(augmented)
 
             augmented_domains = torch.stack(augmented_domains)
@@ -425,14 +443,16 @@ class generator(nn.Module):
         # For each sample in the batch
         for i in range(bs):
             # Step 1: Generate a shuffled index list for the domains
-            shuffled_idxs = torch.randperm(num_domains)
+            domain_idxs = torch.arange(num_domains, device=data.device)
+            shuffled_idxs = torch.randperm(num_domains, device=data.device)
+            while torch.any(shuffled_idxs == domain_idxs):
+                shuffled_idxs = torch.randperm(num_domains, device=data.device)
 
-            # Step 2: Choose random alpha between 0.5 and 2, then sample lambda from beta distribution
-            alpha = torch.rand(1) * 1.5 + 0.5  # random alpha between 0.5 and 2
-            lambda_ = torch.distributions.beta.Beta(alpha, alpha).sample().to(data.device)
+            # Step 2: Choose random alpha between 0 and 1
+            alpha = torch.rand((), device=data.device)
 
             # Step 3: Perform mixup using the shuffled indices
-            mixed_data[i] = lambda_ * data[i] + (1 - lambda_) * data[i, shuffled_idxs]
+            mixed_data[i] = alpha * data[i] + (1 - alpha) * data[i, shuffled_idxs]
 
         return mixed_data
 
@@ -443,19 +463,18 @@ class generator(nn.Module):
         # Convert degrees to radians
         rotation_degree = torch.rand(1).to(fake_fs.device) * (rotation_degree_range[1] - rotation_degree_range[0]) + rotation_degree_range[0]
         rotation_radians = rotation_degree * (3.141592653589793 / 180.0)
-        # Create an identity affine transformation (3x4) with the rotation in the top-left 2x2 corner
+        # Create an identity affine transformation (2x3) with the rotation in the top-left 2x2 corner
         identity_affine = torch.tensor([
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0]
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0]
         ], dtype=torch.float32).to(fake_fs.device)
         # Fill the rotation into the top-left 2x2
         identity_affine[0, 0:2] = torch.tensor([torch.cos(rotation_radians), -torch.sin(rotation_radians)], dtype=torch.float32).to(fake_fs.device)
         identity_affine[1, 0:2] = torch.tensor([torch.sin(rotation_radians), torch.cos(rotation_radians)], dtype=torch.float32).to(fake_fs.device)
         # Expand the affine transformation for the batch
         theta = identity_affine.unsqueeze(0).repeat(fake_fs.size(0), 1, 1)
-        grid = F.affine_grid(theta, fake_fs.size())
-        fake_fs = F.grid_sample(fake_fs, grid)
+        grid = F.affine_grid(theta, fake_fs.size(), align_corners=False)
+        fake_fs = F.grid_sample(fake_fs, grid, align_corners=False)
     
         return fake_fs
 
@@ -515,6 +534,8 @@ class generator(nn.Module):
         mix_f_outputs = self.mixup_in_latent_space(f_outputs)
         aug_fake = torch.cat([f_outputs_aug, mix_f_outputs], dim=2).view(-1, self.encoder_feat_dim*2, 8, 8)
         fc = self.fc_weights(aug_fake).view(number_of_groups, video_per_group-1, self.encoder_feat_dim, 8, 8)
+        final_fake = torch.cat([fc, f_outputs_aug], dim=2).view(-1, self.encoder_feat_dim*2, 8, 8)
+        fc = self.fc_weights2(final_fake).view(number_of_groups, video_per_group-1, self.encoder_feat_dim, 8, 8)
 
 
 

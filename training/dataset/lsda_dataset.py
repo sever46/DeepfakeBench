@@ -175,11 +175,11 @@ class LSDADataset(DeepfakeAbstractBaseDataset):
     if on_3060:
         data_root = r'F:\Datasets\rgb\FaceForensics++'
     else:
-        data_root = r'./datasets/FaceForensics++'
+        data_root = r'./datasets/rgb/FaceForensics++'
     data_list = {
-        'test': r'./datasets/FaceForensics++/test.json',
-        'train': r'./datasets/FaceForensics++/train.json',
-        'eval': r'./datasets/FaceForensics++/val.json'
+        'test': r'./datasets/rgb/FaceForensics++/test.json',
+        'train': r'./datasets/rgb/FaceForensics++/train.json',
+        'eval': r'./datasets/rgb/FaceForensics++/val.json'
     }
 
     def __init__(self, config=None, mode='train', with_dataset=['Deepfakes', 'Face2Face', 'FaceSwap', 'NeuralTextures']):
@@ -202,33 +202,36 @@ class LSDADataset(DeepfakeAbstractBaseDataset):
         with open(self.data_list[mode], 'r') as fd:
             data = json.load(fd)
             img_lines = []
+            self.num_groups = 0
+            dataset_name = self.data_root.split(os.path.sep)[-1]
+            split = self.img_json[dataset_name]
+
             for pair in data:
                 r1, r2 = pair
-                step = 1
-                # collect a group with 1+len(fakes) videos, each video has self.frames[mode] frames。这里就是按同一个video这种顺序来存的，所以读的时候自然只要有了offset，就能对应的取了
-                #此外，这里面存的压根就不是路径，而是规范化的内容。
-                for i in range(0, config['frame_num'][mode], step):
-                    # collect real data here(r1)
-                    img_lines.append(('{}/{}'.format('youtube', r1), i, 0, mode))
 
-                for fake_d in with_dataset:
-                    # collect fake data here(r1_r2 * 4)
-                    for i in range(0, config['frame_num'][mode], step):
-                        img_lines.append(
-                            ('{}/{}_{}'.format(fake_d, r1, r2), i, self.fake_dict[fake_d], mode))
-                
-                for i in range(0, config['frame_num'][mode], step):
-                    # collect real data here(r2)
-                    img_lines.append(('{}/{}'.format('youtube', r2), i, 0, mode))
-                
-                for fake_d in with_dataset:
-                    # collect fake data here(r2_r1 * 4)
-                    for i in range(0, config['frame_num'][mode], step):
-                        img_lines.append(
-                            ('{}/{}_{}'.format(fake_d, r2, r1), i, self.fake_dict[fake_d], mode))
+                for r_src, r_dst in ((r1, r2), (r2, r1)):
+                    videos = [('youtube', r_src)]
+                    videos.extend((fake_d, '{}_{}'.format(r_src, r_dst)) for fake_d in with_dataset)
 
-        # 2*360 (groups) * 1+len(with_dataset) (videos in each group) * self.frames[mode] (frames in each video)
-        assert len(img_lines) == 2*len(data) * (1 + len(with_dataset)) * config['frame_num'][mode], "to match our custom sampler, the length should be 2*360*(1+len(with_dataset))*frames[mode]"
+                    valid = True
+                    for instance_type, video_name in videos:
+                        dataset = split[self.transfer_dict[instance_type]][mode]['c23']
+                        if video_name not in dataset or not dataset[video_name]['frames']:
+                            print('Skipping LSDA group {}/{} because it has no frames'.format(instance_type, video_name))
+                            valid = False
+                            break
+
+                    if not valid:
+                        continue
+
+                    for instance_type, video_name in videos:
+                        label = 0 if instance_type == 'youtube' else self.fake_dict[instance_type]
+                        for i in range(config['frame_num'][mode]):
+                            img_lines.append(('{}/{}'.format(instance_type, video_name), i, label, mode))
+
+                    self.num_groups += 1
+
+        assert len(img_lines) == self.num_groups * (1 + len(with_dataset)) * config['frame_num'][mode]
         self.img_lines.extend(img_lines)
 
 
@@ -244,9 +247,15 @@ class LSDADataset(DeepfakeAbstractBaseDataset):
 
     def load_image(self, name, idx):
         instance_type, video_name = name.split('/')
-        #其实并没有完全对应，而只是保证在同一video的目标时间区间内的一帧
-        all_frames = self.img_json[self.data_root.split(os.path.sep)[-1]][self.transfer_dict[instance_type]]['train']['c23'][video_name]['frames']
-        img_path = all_frames[idx]
+        all_frames = self.img_json[self.data_root.split(os.path.sep)[-1]][self.transfer_dict[instance_type]][self.mode]['c23'][video_name]['frames']
+
+        frame_num = self.config['frame_num'][self.mode]
+        if frame_num <= 1 or len(all_frames) <= 1:
+            frame_idx = 0
+        else:
+            frame_idx = int(round(idx * (len(all_frames) - 1) / (frame_num - 1)))
+
+        img_path = all_frames[frame_idx]
 
         impath = img_path
         img = self.load_rgb(impath)
@@ -256,26 +265,8 @@ class LSDADataset(DeepfakeAbstractBaseDataset):
         name, idx, label, mode = self.img_lines[index] #这个sampler的目的是不要取重复video的图。
         label = int(label)  # specific fake label from 1-4
 
-        #取img没什么好说的。然后在这里把规范化的img_lines转为实际路径。
-        try:
-            img = self.load_image(name, idx)
-        except Exception as e:
-            # 下面处理不太合适，取的不是预期的video_id/fake_method，影响后面的lsda。
-            # random_idx = random.randint(0, len(self.img_lines)-1)
-            # print(f'Error loading image {name} at index {idx} due to the loading error. Try another one at index {random_idx}')
-            # return self.__getitem__(random_idx)
+        img = self.load_image(name, idx)
 
-            #边界条件判断，取同video的。
-            if idx==0:
-                new_index = index+1
-            elif idx==31:
-                new_index = index-1
-            else:
-                new_index = index + random.choice([-1,1]) # 通过随机防止死递归
-            print(f'Error loading image {name} at index {idx} due to the loading error. Try another one at index {new_index}')
-            return self.__getitem__(new_index)
-
-            
         if self.mode=='train':
             # do augmentation
             img = np.asarray(img) # convert PIL to numpy

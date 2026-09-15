@@ -5,3 +5,14 @@
 *.pth
 *.pt
 *.dat
+datasets/*
+training/weights/
+preprocessing/dataset_json*
+logs/*
+old_git/
+ibb_results/
+results/
+training/dataset/library/__pycache__/
+training/improved/
+old_scripts/
+*.pkl
