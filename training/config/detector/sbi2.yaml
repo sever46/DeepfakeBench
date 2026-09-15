@@ -3,7 +3,8 @@ log_dir: /data/home/zhiyuanyan/logs/benchv2/sbi_v3
 
 # model setting
 #pretrained: /data/home/zhiyuanyan/DeepfakeBench/training/pretrained/xception-b5690688.pth   # path to a pre-trained model, if using one
-pretrained: /media/domen/LOJZES/OTHER/__ai/IBB-research/DeepfakeBench/training/pretrained/xception-b5690688.pth
+#pretrained: /media/domen/LOJZES/OTHER/__ai/IBB-research/DeepfakeBench/training/pretrained/xception-b5690688.pth
+pretrained: './training/pretrained/xception-b5690688.pth'
 #pretrained: /media/domen/LOJZES/OTHER/__ai/IBB-research/DeepfakeBench/training/pretrained/efficientnet-b4-6ed6700e.pth
 model_name: sbi   # model name
 backbone_name: efficientnetb4  # backbone name

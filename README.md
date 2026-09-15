@@ -1,8 +1,14 @@
 
-
+## How to reproduce
 
 Download the RGB datasets: [link](https://drive.google.com/drive/folders/1N4X3rvx9IhmkEZK-KIk4OxBrQb9BRUcs?usp=drive_link)
 Download the JSON configuration [link](https://drive.google.com/drive/folders/1ZV3fz5MZZU5BTB5neziN6i8Yv0Z21_LO?usp=drive_link)
+
+Run `setup.sh` to download all the base models, checkpoints and the retina-preprocessed CDF-v2
+
+I had a lot of problems trying to get the environment to work because my GPU uses a newer cuda version, so I am providing my environment information in `mamba_env.tar.gz` in the releases page.
+
+
 
 ----
 

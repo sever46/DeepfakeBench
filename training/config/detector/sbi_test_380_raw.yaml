@@ -1,5 +1,5 @@
 log_dir: /data/home/zhiyuanyan/logs/benchv2/sbi_v3
-pretrained: /media/domen/LOJZES/OTHER/__ai/IBB-research/DeepfakeBench/training/pretrained/xception-b5690688.pth
+pretrained: './training/pretrained/xception-b5690688.pth'
 model_name: sbi
 backbone_name: efficientnetb4
 backbone_config:
