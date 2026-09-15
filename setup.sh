@@ -10,6 +10,7 @@ wget -O training/pretrained/xception-b5690688.pth https://github.com/sever46/Dee
 wget -O landmark_dict_new.pkl https://github.com/sever46/DeepfakeBench/releases/download/0.1/landmark_dict_new.pkl
 wget -O nearest_face_info_worep.pkl https://github.com/sever46/DeepfakeBench/releases/download/0.1/nearest_face_info_worep.pkl
 # download the weights 
+mkdir -p training/weights
 wget -O training/weights/lsda_ckpt_best.pth https://github.com/sever46/DeepfakeBench/releases/download/0.1/lsda_ckpt_best.pth
 wget -O training/weights/prodet_ckpt_best.pth https://github.com/sever46/DeepfakeBench/releases/download/0.1/prodet_ckpt_best.pth
 wget -O training/weights/SBI_converted_best.pth https://github.com/sever46/DeepfakeBench/releases/download/0.1/SBI_best_converted.pth
