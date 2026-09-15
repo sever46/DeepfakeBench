@@ -17,7 +17,7 @@ wget -O training/weights/SBI_local_trained.pth https://github.com/sever46/Deepfa
 
 # download the special CDFv2 dataset
 wget https://github.com/sever46/DeepfakeBench/releases/download/0.1/cdf_dataset.tar.xz
-tar xvf cdf_dataset.tar.gz
-rm cdf_dataset.tar.gz
+tar xvf cdf_dataset.tar.xz
+rm cdf_dataset.tar.xz
 
 
