@@ -20,4 +20,7 @@ wget https://github.com/sever46/DeepfakeBench/releases/download/0.1/cdf_dataset.
 tar xvf cdf_dataset.tar.xz
 rm cdf_dataset.tar.xz
 
+# download dlib
+wget -O preprocessing/dlib_tools/shape_predictor_81_face_landmarks.dat https://github.com/SCLBD/DeepfakeBench/releases/download/v1.0.0/shape_predictor_81_face_landmarks.dat
+
 
