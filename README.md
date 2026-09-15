@@ -8,7 +8,58 @@ Run `setup.sh` to download all the base models, checkpoints and the retina-prepr
 
 I had a lot of problems trying to get the environment to work because my GPU uses a newer cuda version, so I am providing my environment information in `mamba_env.tar.gz` in the releases page.
 
+Once the environment is completely set up, run the following scripts to reproduce the results:
 
+### SBI converted with preprocessing fix
+
+**Important**: Before running this test, change `dataset_json_folder` in
+`training/config/test_config.yaml` to:
+
+```
+dataset_json_folder: ./preprocessing/dataset_json_sbi
+```
+
+Then run:
+
+```
+python3 training/test.py \
+    --detector_path training/config/detector/sbi_test_380_raw_retina.yaml \
+    --test_dataset Celeb-DF-v2 \
+    --weights_path training/weights/SBI_converted_best.pth
+```
+
+Afterwards, restore the config before running the other models:
+
+```
+dataset_json_folder: ./preprocessing/dataset_json
+```
+
+### SBI local trained (before preprocessing fix)
+
+```
+python3 training/test.py \
+    --detector_path training/config/detector/sbi_test_380_raw.yaml \
+    --test_dataset Celeb-DF-v2 DFDC DFDCP \
+    --weights_path training/weights/SBI_local_trained.pth
+```
+
+### ProDet
+
+```
+python3 training/test.py \
+    --detector_path training/config/detector/prodet.yaml \
+    --test_dataset Celeb-DF-v2 DFDC DFDCP \
+    --weights_path training/weights/prodet_ckpt_best.pth
+```
+
+### LSDA
+
+```
+python3 training/test.py \
+    --detector_path training/config/detector/lsda.yaml \
+    --test_dataset Celeb-DF-v2 DFDC DFDCP \
+    --weights_path training/weights/lsda_ckpt_best.pth
+```
 
 ----
 
