@@ -4,6 +4,8 @@
 wget -O training/pretrained/arcface.pt https://github.com/sever46/DeepfakeBench/releases/download/0.1/arcface.pt
 # download efficientnet
 wget -O training/pretrained/efficientnet-b4-6ed6700e.pth https://github.com/sever46/DeepfakeBench/releases/download/0.1/efficientnet-b4-6ed6700e.pth
+# download xception
+wget -O training/pretrained/xception-b5690688.pth https://github.com/sever46/DeepfakeBench/releases/download/0.1/xception-b5690688.pth
 # download pkl files
 wget -O landmark_dict_new.pkl https://github.com/sever46/DeepfakeBench/releases/download/0.1/landmark_dict_new.pkl
 wget -O nearest_face_info_worep.pkl https://github.com/sever46/DeepfakeBench/releases/download/0.1/nearest_face_info_worep.pkl
