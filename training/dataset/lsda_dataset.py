@@ -172,10 +172,11 @@ class LSDADataset(DeepfakeAbstractBaseDataset):
 
 
     }
-    if on_3060:
-        data_root = r'F:\Datasets\rgb\FaceForensics++'
-    else:
-        data_root = r'./datasets/rgb/FaceForensics++'
+    # WTF
+    #if on_3060:
+    #    data_root = r'F:\Datasets\rgb\FaceForensics++'
+    #else:
+    data_root = r'./datasets/rgb/FaceForensics++'
     data_list = {
         'test': r'./datasets/rgb/FaceForensics++/test.json',
         'train': r'./datasets/rgb/FaceForensics++/train.json',
